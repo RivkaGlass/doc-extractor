@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>חילוץ חשבוניות</title>
+<style>
+  :root {
+    --bg: #eef1f5;
+    --panel: #ffffff;
+    --ink: #1b2430;
+    --muted: #5d6b7c;
+    --line: #d5dce5;
+    --accent: #1f4fd8;
+    --accent-ink: #ffffff;
+    --err: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161c;
+      --panel: #1a2029;
+      --ink: #e8edf3;
+      --muted: #97a4b5;
+      --line: #2c3644;
+      --accent: #6d92ff;
+      --accent-ink: #0d1424;
+      --err: #ff8a80;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", Arial, sans-serif;
+    line-height: 1.5;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .drop {
+    display: block;
+    border: 2px dashed var(--line);
+    border-radius: 8px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .drop:hover, .drop:focus-within, .drop.over { border-color: var(--accent); color: var(--ink); }
+  .drop input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  #preview { display: none; max-height: 220px; max-width: 100%; margin: 16px auto 0; border-radius: 6px; border: 1px solid var(--line); }
+  button {
+    font: inherit;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 0;
+    border-radius: 6px;
+    padding: 10px 20px;
+    cursor: pointer;
+    margin-top: 16px;
+  }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); margin: 0; padding: 6px 14px; }
+  button:focus-visible, .drop:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+  #status { margin-top: 12px; min-height: 1.5em; color: var(--muted); }
+  #status.error { color: var(--err); }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; font-weight: 600; }
+  .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  h2 { font-size: 1.1rem; margin: 0; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; }
+  .empty { color: var(--muted); }
+  [hidden] { display: none !important; }
+  .search { display: flex; gap: 8px; align-items: center; }
+  .search input { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); min-width: 180px; }
+  td a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>חילוץ נתונים מחשבונית</h1>
+  <p class="sub">מעלים תמונה של חשבונית ומקבלים ספק, תאריך, סכום ומטבע.</p>
+
+  <section class="panel">
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept="image/*">
+      <span id="dropText">גררי לכאן תמונה או לחצי לבחירה</span>
+    </label>
+    <img id="preview" alt="תצוגה מקדימה של החשבונית">
+    <button id="send" disabled>חלץ נתונים</button>
+    <div id="status" role="status"></div>
+  </section>
+
+  <section class="panel" id="resultPanel" hidden>
+    <h2>התוצאה</h2>
+    <dl id="result"></dl>
+  </section>
+
+  <section class="panel">
+    <div class="head">
+      <h2>חשבוניות שנשמרו</h2>
+      <div class="search">
+        <input type="search" id="q" placeholder="חיפוש לפי שם ספק" aria-label="חיפוש לפי שם ספק">
+        <button class="ghost" id="searchBtn">חפש</button>
+        <button class="ghost" id="refresh">הצג הכל</button>
+      </div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>מזהה</th><th>ספק</th><th>תאריך</th><th>סכום</th><th>מטבע</th><th>נשמר ב</th><th>תמונה</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="empty" hidden>לא נמצאו חשבוניות.</p>
+  </section>
+</main>
+
+<script>
+  // הדף נשרת מאותו שרת (localhost:8081), לכן אין צורך בכתובת מלאה וגם אין בעיית CORS
+  const API = "/api/documents";
+  const fileInput = document.getElementById("file");
+  const drop = document.getElementById("drop");
+  const dropText = document.getElementById("dropText");
+  const preview = document.getElementById("preview");
+  const sendBtn = document.getElementById("send");
+  const statusEl = document.getElementById("status");
+  const resultPanel = document.getElementById("resultPanel");
+  const resultEl = document.getElementById("result");
+  const rowsEl = document.getElementById("rows");
+  const emptyEl = document.getElementById("empty");
+
+  function setStatus(text, isError) {
+    statusEl.textContent = text;
+    statusEl.className = isError ? "error" : "";
+  }
+
+  function chooseFile(file) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setStatus("אפשר להעלות רק קובץ תמונה (jpg או png).", true);
+      return;
+    }
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = "block";
+    dropText.textContent = file.name;
+    sendBtn.disabled = false;
+    setStatus("", false);
+  }
+
+  fileInput.addEventListener("change", () => chooseFile(fileInput.files[0]));
+  ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => chooseFile(e.dataTransfer.files[0]));
+
+  sendBtn.addEventListener("click", async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append("file", file); // חייב להתאים ל-@RequestParam ב-Controller
+    sendBtn.disabled = true;
+    setStatus("מחלץ נתונים מהחשבונית, זה לוקח כמה שניות...", false);
+    try {
+      const res = await fetch(API + "/extract", { method: "POST", body: form });
+      if (!res.ok) {
+        const msg = res.status === 400 ? "הקובץ לא זוהה כתמונה."
+                  : res.status === 502 ? "החילוץ נכשל. בדקי את הקונסול ב-Eclipse ואת מפתח Gemini."
+                  : "שגיאה מהשרת (" + res.status + ").";
+        throw new Error(msg);
+      }
+      const doc = await res.json();
+      showResult(doc);
+      setStatus("החשבונית נשמרה.", false);
+      loadAll();
+    } catch (err) {
+      setStatus(err.message || "לא ניתן להתחבר לשרת. ודאי שהאפליקציה רצה.", true);
+    } finally {
+      sendBtn.disabled = false;
+    }
+  });
+
+  function showResult(d) {
+    const items = [["ספק", d.vendor], ["תאריך", d.invoiceDate], ["סכום", d.total], ["מטבע", d.currency], ["מזהה", d.id]];
+    resultEl.replaceChildren();
+    for (const [k, v] of items) {
+      const dt = document.createElement("dt"); dt.textContent = k;
+      const dd = document.createElement("dd"); dd.textContent = v ?? "לא זוהה";
+      resultEl.append(dt, dd);
+    }
+    resultPanel.hidden = false;
+  }
+
+  async function loadAll() {
+    try {
+      const q = document.getElementById("q").value.trim();
+      const res = await fetch(q ? API + "/search?vendor=" + encodeURIComponent(q) : API);
+      const docs = await res.json();
+      rowsEl.replaceChildren();
+      emptyEl.hidden = docs.length > 0;
+      for (const d of docs) {
+        const tr = document.createElement("tr");
+        const cells = [d.id, d.vendor, d.invoiceDate, d.total, d.currency, d.createdAt ? String(d.createdAt).replace("T", " ").slice(0, 16) : ""];
+        for (const c of cells) {
+          const td = document.createElement("td");
+          td.textContent = c ?? "";
+          tr.append(td);
+        }
+        const imgTd = document.createElement("td");
+        const a = document.createElement("a");
+        a.href = API + "/" + d.id + "/image";
+        a.target = "_blank";
+        a.textContent = "הצג";
+        imgTd.append(a);
+        tr.append(imgTd);
+        rowsEl.append(tr);
+      }
+    } catch (e) {
+      setStatus("לא ניתן לטעון את הרשימה. ודאי שהאפליקציה רצה.", true);
+    }
+  }
+
+  document.getElementById("searchBtn").addEventListener("click", loadAll);
+  document.getElementById("q").addEventListener("keydown", e => { if (e.key === "Enter") loadAll(); });
+  document.getElementById("refresh").addEventListener("click", () => { document.getElementById("q").value = ""; loadAll(); });
+  loadAll();
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 package com.example.doc_extractor;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -20,6 +21,13 @@ public class Document {
     private String currency;
     private Instant createdAt;
 
+    @JsonIgnore
+    @Lob
+    @Column(length = 10_000_000)
+    private byte[] imageData;
+
+    private String imageType;
+
     @PrePersist
     void onCreate() {
         createdAt = Instant.now();
@@ -37,4 +45,8 @@ public class Document {
     public String getCurrency() { return currency; }
     public void setCurrency(String currency) { this.currency = currency; }
     public Instant getCreatedAt() { return createdAt; }
+    public byte[] getImageData() { return imageData; }
+    public void setImageData(byte[] imageData) { this.imageData = imageData; }
+    public String getImageType() { return imageType; }
+    public void setImageType(String imageType) { this.imageType = imageType; }
 }

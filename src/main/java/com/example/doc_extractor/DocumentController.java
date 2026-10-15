@@ -5,7 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+import org.springframework.http.MediaType;
 @RestController
 @RequestMapping("/api/documents")
 public class DocumentController {
@@ -20,7 +20,20 @@ public class DocumentController {
     public List<Document> getAll() {
         return repository.findAll();
     }
+    @GetMapping("/search")
+    public List<Document> search(@RequestParam String vendor) {
+        return repository.findByVendorContainingIgnoreCase(vendor);
+    }
 
+    @GetMapping("/{id}/image")
+    public ResponseEntity<byte[]> getImage(@PathVariable Long id) {
+        return repository.findById(id)
+                .filter(d -> d.getImageData() != null)
+                .map(d -> ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(d.getImageType()))
+                        .body(d.getImageData()))
+                .orElse(ResponseEntity.notFound().build());
+    }
     @GetMapping("/{id}")
     public ResponseEntity<Document> getById(@PathVariable Long id) {
         return repository.findById(id)

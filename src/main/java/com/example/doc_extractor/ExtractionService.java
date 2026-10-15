@@ -19,8 +19,9 @@ public class ExtractionService {
 
     private static final String PROMPT =
             "Extract vendor, invoice date (YYYY-MM-DD), total amount (number only) and "
-          + "currency (ISO code) from this document. Return ONLY a JSON object with the keys: "
-          + "vendor, invoiceDate, total, currency. Use null for anything you cannot find.";
+          + "currency (ISO code) from this document. Return a single JSON object, not an array, "
+          + "with the keys: vendor, invoiceDate, total, currency. "
+          + "Use null for anything you cannot find.";
 
     private final DocumentRepository repository;
     private final RestClient client = RestClient.create("https://generativelanguage.googleapis.com");
@@ -45,11 +46,24 @@ public class ExtractionService {
         try {
             String base64 = Base64.getEncoder().encodeToString(file.getBytes());
 
+            // Forces Gemini to return exactly one object with these four fields
+            Map<String, Object> schema = Map.of(
+                    "type", "OBJECT",
+                    "properties", Map.of(
+                            "vendor", Map.of("type", "STRING", "nullable", true),
+                            "invoiceDate", Map.of("type", "STRING", "nullable", true),
+                            "total", Map.of("type", "NUMBER", "nullable", true),
+                            "currency", Map.of("type", "STRING", "nullable", true)),
+                    "required", List.of("vendor", "invoiceDate", "total", "currency"));
+
             Map<String, Object> body = Map.of(
                     "contents", List.of(Map.of("parts", List.of(
                             Map.of("inline_data", Map.of("mime_type", mediaType, "data", base64)),
                             Map.of("text", PROMPT)))),
-                    "generationConfig", Map.of("responseMimeType", "application/json"));
+                    "generationConfig", Map.of(
+                            "responseMimeType", "application/json",
+                            "responseSchema", schema,
+                            "temperature", 0));
 
             Map<?, ?> response = client.post()
                     .uri("/v1beta/models/" + model + ":generateContent")
@@ -64,22 +78,33 @@ public class ExtractionService {
             String text = (String) ((Map<?, ?>) parts.get(0)).get("text");
             text = text.replace("```json", "").replace("```", "").trim();
 
-            Map<?, ?> fields = mapper.readValue(text, Map.class);
+            // Fallback: accept both an object and an array (takes the first item)
+            Object parsed = mapper.readValue(text, Object.class);
+            Map<?, ?> fields = (parsed instanceof List<?> list && !list.isEmpty())
+                    ? (Map<?, ?>) list.get(0)
+                    : (Map<?, ?>) parsed;
 
             Document doc = new Document();
             doc.setFileName(file.getOriginalFilename());
+            doc.setImageData(file.getBytes());
+            doc.setImageType(mediaType);
             doc.setVendor(asString(fields.get("vendor")));
             doc.setCurrency(asString(fields.get("currency")));
+
             String date = asString(fields.get("invoiceDate"));
-            if (date != null) doc.setInvoiceDate(LocalDate.parse(date));
+            if (date != null) {
+                try { doc.setInvoiceDate(LocalDate.parse(date)); } catch (Exception ignored) { }
+            }
             String total = asString(fields.get("total"));
-            if (total != null) doc.setTotal(new BigDecimal(total));
+            if (total != null) {
+                try { doc.setTotal(new BigDecimal(total.replace(",", ""))); } catch (Exception ignored) { }
+            }
 
             return repository.save(doc);
 
         } catch (ResponseStatusException e) {
             throw e;
-               } catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Extraction failed: " + e);
         }
