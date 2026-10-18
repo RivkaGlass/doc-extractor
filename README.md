@@ -3,8 +3,7 @@
 **Turn an invoice into structured data in seconds.**
 Upload a photo or PDF of an invoice. Gemini reads it, and the vendor, date, total and currency land in PostgreSQL, ready to search.
 
-![Screenshot](docs/screenshot.png)
-
+![Screenshot](https://raw.githubusercontent.com/RivkaGlass/doc-extractor/main/docs/screenshot.png)
 Built to handle real-world Hebrew invoices: right-to-left text, `DD/MM/YYYY` dates, and the ₪ sign.
 
 ## What it returns
