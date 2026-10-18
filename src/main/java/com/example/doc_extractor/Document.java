@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-
+import jakarta.persistence.Column;
 @Entity
 @Table(name = "documents")
 public class Document {
@@ -20,14 +20,11 @@ public class Document {
     private BigDecimal total;
     private String currency;
     private Instant createdAt;
-
     @JsonIgnore
-    @Lob
-    @Column(length = 10_000_000)
+    @Column(name = "image_data", columnDefinition = "bytea")
     private byte[] imageData;
 
     private String imageType;
-
     @PrePersist
     void onCreate() {
         createdAt = Instant.now();

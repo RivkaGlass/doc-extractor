@@ -69,6 +69,7 @@
   }
   button:disabled { opacity: .5; cursor: not-allowed; }
   button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); margin: 0; padding: 6px 14px; }
+  button.danger { color: var(--err); }
   button:focus-visible, .drop:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
   #status { margin-top: 12px; min-height: 1.5em; color: var(--muted); }
   #status.error { color: var(--err); }
@@ -91,12 +92,12 @@
 <body>
 <main>
   <h1>חילוץ נתונים מחשבונית</h1>
-  <p class="sub">מעלים תמונה של חשבונית ומקבלים ספק, תאריך, סכום ומטבע.</p>
+  <p class="sub">מעלים תמונה או PDF של חשבונית ומקבלים ספק, תאריך, סכום ומטבע.</p>
 
   <section class="panel">
     <label class="drop" id="drop">
-      <input type="file" id="file" accept="image/*">
-      <span id="dropText">גררי לכאן תמונה או לחצי לבחירה</span>
+      <input type="file" id="file" accept="image/*,application/pdf,.pdf">
+      <span id="dropText">גררי לכאן תמונה או PDF, או לחצי לבחירה</span>
     </label>
     <img id="preview" alt="תצוגה מקדימה של החשבונית">
     <button id="send" disabled>חלץ נתונים</button>
@@ -120,7 +121,7 @@
     <div class="scroll">
       <table>
         <thead>
-          <tr><th>מזהה</th><th>ספק</th><th>תאריך</th><th>סכום</th><th>מטבע</th><th>נשמר ב</th><th>תמונה</th></tr>
+          <tr><th>מזהה</th><th>ספק</th><th>תאריך</th><th>סכום</th><th>מטבע</th><th>נשמר ב</th><th>קובץ</th><th></th></tr>
         </thead>
         <tbody id="rows"></tbody>
       </table>
@@ -148,17 +149,34 @@
     statusEl.className = isError ? "error" : "";
   }
 
+  async function deleteDoc(id) {
+    if (!confirm("למחוק את החשבונית?")) return;
+    try {
+      const res = await fetch(API + "/" + id, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      loadAll();
+    } catch (e) {
+      setStatus("המחיקה נכשלה.", true);
+    }
+  }
+
   function chooseFile(file) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setStatus("אפשר להעלות רק קובץ תמונה (jpg או png).", true);
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!isImage && !isPdf) {
+      setStatus("אפשר להעלות תמונה (jpg, png, webp) או PDF.", true);
       return;
     }
     const dt = new DataTransfer();
     dt.items.add(file);
     fileInput.files = dt.files;
-    preview.src = URL.createObjectURL(file);
-    preview.style.display = "block";
+    if (isImage) {
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = "block";
+    } else {
+      preview.style.display = "none";
+    }
     dropText.textContent = file.name;
     sendBtn.disabled = false;
     setStatus("", false);
@@ -179,7 +197,7 @@
     try {
       const res = await fetch(API + "/extract", { method: "POST", body: form });
       if (!res.ok) {
-        const msg = res.status === 400 ? "הקובץ לא זוהה כתמונה."
+        const msg = res.status === 400 ? "סוג הקובץ לא נתמך."
                   : res.status === 502 ? "החילוץ נכשל. בדקי את הקונסול ב-Eclipse ואת מפתח Gemini."
                   : "שגיאה מהשרת (" + res.status + ").";
         throw new Error(msg);
@@ -221,6 +239,7 @@
           td.textContent = c ?? "";
           tr.append(td);
         }
+
         const imgTd = document.createElement("td");
         const a = document.createElement("a");
         a.href = API + "/" + d.id + "/image";
@@ -228,6 +247,15 @@
         a.textContent = "הצג";
         imgTd.append(a);
         tr.append(imgTd);
+
+        const delTd = document.createElement("td");
+        const delBtn = document.createElement("button");
+        delBtn.className = "ghost danger";
+        delBtn.textContent = "מחק";
+        delBtn.addEventListener("click", () => deleteDoc(d.id));
+        delTd.append(delBtn);
+        tr.append(delTd);
+
         rowsEl.append(tr);
       }
     } catch (e) {

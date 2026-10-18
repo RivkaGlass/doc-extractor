@@ -24,7 +24,14 @@ public class DocumentController {
     public List<Document> search(@RequestParam String vendor) {
         return repository.findByVendorContainingIgnoreCase(vendor);
     }
-
+@DeleteMapping("/{id}")
+public ResponseEntity<Void> delete(@PathVariable Long id) {
+    if (!repository.existsById(id)) {
+        return ResponseEntity.notFound().build();
+    }
+    repository.deleteById(id);
+    return ResponseEntity.noContent().build();
+}
     @GetMapping("/{id}/image")
     public ResponseEntity<byte[]> getImage(@PathVariable Long id) {
         return repository.findById(id)
