@@ -56,6 +56,30 @@ export GEMINI_API_KEY=your-key
 
 Open <http://localhost:8081>.
 
+## Run with Docker
+
+```bash
+# 1. copy the example env file and set your secrets
+cp .env.example .env
+
+# 2. build and run the app + database containers
+docker compose up --build
+```
+
+This uses the Docker database service on `localhost:5433` and exposes the app at <http://localhost:8081>.
+
+To run only the database locally and keep the app on the IDE:
+
+```bash
+docker compose up db
+```
+
+The app container uses the same `.env` values for:
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `GEMINI_API_KEY`
+
 > **Windows tip:** if you see `PKIX path building failed`, add the JVM argument `-Djavax.net.ssl.trustStoreType=WINDOWS-ROOT`.
 
 ## API

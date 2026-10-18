@@ -1,2 +1,3 @@
+# קובע את התנהגות Git לקבצים של הפרויקט. 
 /mvnw text eol=lf
 *.cmd text eol=crlf

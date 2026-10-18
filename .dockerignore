@@ -1,0 +1,9 @@
+# מגדיר אילו קבצים יתעלמו מבניית ה-Docker. 
+target/
+.git
+.idea
+.classpath
+.project
+.settings/
+*.log
+.env

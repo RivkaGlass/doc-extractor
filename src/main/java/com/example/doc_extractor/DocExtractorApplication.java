@@ -3,6 +3,7 @@ package com.example.doc_extractor;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+/** יוצר את היישום הראשי של שירות חילוץ החשבוניות. */
 @SpringBootApplication
 public class DocExtractorApplication {
 

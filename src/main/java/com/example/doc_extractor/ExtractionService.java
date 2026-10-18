@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/** שירות שמחלץ נתונים מחשבונית באמצעות Gemini. */
 @Service
 public class ExtractionService {
 
@@ -43,8 +44,8 @@ public class ExtractionService {
     private final String model;
 
     public ExtractionService(DocumentRepository repository,
-                             @Value("${GEMINI_API_KEY}") String apiKey,
-                             @Value("${gemini.model:gemini-2.5-flash-lite}") String model) {
+                             @Value("${gemini.api.key}") String apiKey,
+                             @Value("${gemini.model:gemini-3.5-flash-lite}") String model) {
         this.repository = repository;
         this.apiKey = apiKey;
         this.model = model;

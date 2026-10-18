@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import org.springframework.http.MediaType;
+
+/** מספק נקודות API לשליפה וניהול של חשבוניות. */
 @RestController
 @RequestMapping("/api/documents")
 public class DocumentController {

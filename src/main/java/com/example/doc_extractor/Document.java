@@ -6,6 +6,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import jakarta.persistence.Column;
+
+/** מייצג רשומה של חשבונית שמאוחסנת במסד הנתונים. */
 @Entity
 @Table(name = "documents")
 public class Document {

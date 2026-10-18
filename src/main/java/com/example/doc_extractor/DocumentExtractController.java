@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+/** מקבל קובץ חשבונית ומפעיל את תהליך החילוץ. */
 @RestController
 @RequestMapping("/api/documents")
 public class DocumentExtractController {
